@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import io
 import time
@@ -10,7 +10,7 @@ import signal
 # Create mmapped file
 fb_filename = "/tmp/PiLO_fb"
 fb_file = open(fb_filename, "wb")
-fb_file.seek(1280*720*24/3-1)
+fb_file.seek(1280*720*8-1)
 fb_file.write(b"\0")
 fb_file.close()
 
@@ -74,7 +74,7 @@ def streams():
             processor.event.set()
         else:
             # When the pool is starved, wait a while for it to refill
-            time.sleep(0.1)
+            time.sleep(0.03)
 
 with picamera.PiCamera() as camera:
     pool = [ImageProcessor() for i in range(4)]
