@@ -1,0 +1,3 @@
+#!/bin/sh
+
+sudo kill `ps aux | grep sudo | grep csi2map | awk '{print $2}'`

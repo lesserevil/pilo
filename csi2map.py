@@ -6,11 +6,16 @@ import threading
 import picamera
 import mmap
 import signal
+import math
+
+capture_width = 1280
+capture_height = 720
+capture_framerate = 60
 
 # Create mmapped file
 fb_filename = "/tmp/PiLO_fb"
 fb_file = open(fb_filename, "wb")
-fb_file.seek(1280*720*8-1)
+fb_file.seek((math.ceil(capture_width/16)*16)*(math.ceil(capture_height/16)*16)*4-1)
 fb_file.write(b"\0")
 fb_file.close()
 
@@ -22,6 +27,8 @@ fb_file.close()
 done = False
 lock = threading.Lock()
 pool = []
+
+last_count = 0
 
 def signal_handler(sig, frame):
     done = True
@@ -37,6 +44,7 @@ class ImageProcessor(threading.Thread):
     def run(self):
         # This method runs in a separate thread
         global done
+        global last_count
         while not self.terminated:
             # Wait for an image to be written to the stream
             if self.event.wait(1):
@@ -49,8 +57,14 @@ class ImageProcessor(threading.Thread):
                     # Set done to True if you want the script to terminate
                     # at some point
                     # done=True
-                    while self.stream.readinto(mapfile) > 0:
-                        continue
+                    count = 0
+                    read_count = self.stream.readinto(mapfile)
+                    while read_count > 0:
+                        count = count + read_count
+                        read_count = self.stream.readinto(mapfile)
+                    if count != last_count:
+                        print(count)
+                        last_count = count
                 except:
                     done = True
                 finally:
@@ -74,12 +88,14 @@ def streams():
             processor.event.set()
         else:
             # When the pool is starved, wait a while for it to refill
-            time.sleep(0.03)
+            #time.sleep(0.03)
+            print("pool starved")
+            time.sleep(0.3)
 
 with picamera.PiCamera() as camera:
     pool = [ImageProcessor() for i in range(4)]
-    camera.resolution = (1280, 720)
-    camera.framerate = 30
+    camera.resolution = (capture_width, capture_height)
+    camera.framerate = capture_framerate
     #camera.start_preview()
     time.sleep(2)
     camera.capture_sequence(streams(), format="bgr", use_video_port=True)

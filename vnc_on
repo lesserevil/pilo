@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-x11vnc -nopw -rawfb map:/tmp/PiLO_fb@1280x720x24 $*
+# -pipeinput 'app'
+x11vnc -rfbport 5901 -nopw -forever -rawfb map:/tmp/PiLO_fb@1280x720x24 -pipeinput cat $*
