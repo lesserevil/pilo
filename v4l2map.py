@@ -1,16 +1,18 @@
 from PIL import Image
 import select
 import time
-import v4l2capture
 import io
-
 import numpy as np
 import cv2
-#import os
 import v4l2capture
 import select
 import mmap
 import math
+
+import v4l2
+import fcntl
+
+from pprint import pprint
 
 #capture_width = 1920
 #capture_height = 1080
@@ -32,7 +34,21 @@ video = v4l2capture.Video_device("/dev/video0")
 try:
     video.set_format(capture_width, capture_height, yuv420=0)
     (size_x, size_y, fmt) = video.get_format()
-    print(size_x, size_y, fmt)
+    print(size_x, size_y, fmt, video.fileno())
+
+    v = video.fileno()
+    v4l2_cap = v4l2.v4l2_capability()
+    fcntl.ioctl(v, v4l2.VIDIOC_QUERYCAP, v4l2_cap)
+    print(v4l2_cap.driver, v4l2_cap.card, v4l2_cap.version, v4l2_cap.capabilities)
+
+    v4l2_input = v4l2.v4l2_input()
+    fcntl.ioctl(v, v4l2.VIDIOC_ENUMINPUT, v4l2_input)
+    print(v4l2_input.index, v4l2_input.name, v4l2_input.type, v4l2_input.status, v4l2_input.reserved[0], v4l2_input.reserved[1], v4l2_input.reserved[2], v4l2_input.reserved[3]   )
+
+    v4l2_timings = v4l2.v4l2_dv_timings()
+    fcntl.ioctl(v, v4l2.VIDIOC_G_DV_TIMINGS, v4l2_timings)
+    print(v4l2_timings)
+
     video.create_buffers(1)
     video.start()
     time.sleep(5)
