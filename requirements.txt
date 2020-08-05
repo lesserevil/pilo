@@ -1,0 +1,5 @@
+Pillow 
+numpy
+opencv-python-headless
+https://github.com/atareao/python3-v4l2capture/archive/master.zip
+https://github.com/lesserevil/python3-v4l2/archive/master.zip
