@@ -12,10 +12,13 @@ capture_width = 1280
 capture_height = 720
 capture_framerate = 60
 
+width = math.ceil(capture_width/16)*16
+height = math.ceil(capture_height/16)*16
+
 # Create mmapped file
 fb_filename = "/tmp/PiLO_fb"
 fb_file = open(fb_filename, "wb")
-fb_file.seek((math.ceil(capture_width/16)*16)*(math.ceil(capture_height/16)*16)*4-1)
+fb_file.seek(width*height*4-1)
 fb_file.write(b"\0")
 fb_file.close()
 
@@ -26,6 +29,7 @@ fb_file.close()
 # Create a pool of image processors
 done = False
 lock = threading.Lock()
+write_lock = threading.Lock()
 pool = []
 
 last_count = 0
@@ -41,6 +45,7 @@ class ImageProcessor(threading.Thread):
         self.event = threading.Event()
         self.terminated = False
         self.start()
+
     def run(self):
         # This method runs in a separate thread
         global done
@@ -48,33 +53,34 @@ class ImageProcessor(threading.Thread):
         while not self.terminated:
             # Wait for an image to be written to the stream
             if self.event.wait(1):
-                try:
-                    self.stream.seek(0)
-                    # Read the image and do some processing on it
-                    # Image.open(self.stream)
-                    # ...
-                    # ...
-                    # Set done to True if you want the script to terminate
-                    # at some point
-                    # done=True
-                    count = 0
-                    read_count = self.stream.readinto(mapfile)
-                    while read_count > 0:
-                        count = count + read_count
+                with write_lock:
+                    try:
+                        self.stream.seek(0)
+                        # Read the image and do some processing on it
+                        # Image.open(self.stream)
+                        # ...
+                        # ...
+                        # Set done to True if you want the script to terminate
+                        # at some point
+                        # done=True
+                        count = 0
                         read_count = self.stream.readinto(mapfile)
-                    if count != last_count:
-                        print(count)
-                        last_count = count
-                except:
-                    done = True
-                finally:
-                    # Reset the stream and event
-                    self.stream.seek(0)
-                    self.stream.truncate()
-                    self.event.clear()
-                    # Return ourselves to the pool
-                    with lock:
-                        pool.append(self)
+                        while read_count > 0:
+                            count = count + read_count
+                            read_count = self.stream.readinto(mapfile)
+                        if count != last_count:
+                            print(count)
+                            last_count = count
+                    except:
+                        done = True
+                    finally:
+                        # Reset the stream and event
+                        self.stream.seek(0)
+                        self.stream.truncate()
+                        self.event.clear()
+                        # Return ourselves to the pool
+                        with lock:
+                            pool.append(self)
 
 def streams():
     while not done:
@@ -83,14 +89,13 @@ def streams():
                 processor = pool.pop()
             else:
                 processor = None
-        if processor:
-            yield processor.stream
-            processor.event.set()
-        else:
-            # When the pool is starved, wait a while for it to refill
-            #time.sleep(0.03)
-            print("pool starved")
-            time.sleep(0.3)
+            if processor:
+                yield processor.stream
+                processor.event.set()
+            else:
+                # When the pool is starved, wait a while for it to refill
+                print("pool starved")
+                time.sleep(0.1)
 
 with picamera.PiCamera() as camera:
     pool = [ImageProcessor() for i in range(4)]
